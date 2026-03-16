@@ -2,15 +2,30 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
-// Replace with your Firebase config from the console
 const firebaseConfig = {
-  apiKey: "AIzaSyDWYf5L0WIXfFDwGv1cXV_3PNLt5Opj_LE",
-  authDomain: "task-app-tracker-78605.firebaseapp.com",
-  projectId: "task-app-tracker-78605",
-  storageBucket: "task-app-tracker-78605.firebasestorage.app",
-  messagingSenderId: "387572408607",
-  appId: "1:387572408607:web:9826c08e82f65e6702902a"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+const requiredConfigKeys = [
+  'apiKey', 
+  'authDomain', 
+  'projectId', 
+  'storageBucket', 
+  'messagingSenderId', 
+  'appId'
+];
+
+for (const key of requiredConfigKeys) {
+  if (!firebaseConfig[key as keyof typeof firebaseConfig]) {
+    console.error(`Missing Firebase config: ${key}`);
+    throw new Error(`Firebase configuration error: ${key} is not set`);
+  }
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
