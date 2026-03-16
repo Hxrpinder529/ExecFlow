@@ -226,7 +226,7 @@ export default function Dashboard() {
 
           {!overdueTasks.length && !dueTodayTasks.length && (
             <p className="text-xs text-muted-foreground text-center py-6">
-              ✅ No critical alerts — All tasks on track!
+              No critical alerts — All tasks on track!
             </p>
           )}
         </CardContent>

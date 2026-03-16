@@ -55,7 +55,7 @@ export default function WeeklyReportPage() {
 
       {/* Auto-populated */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">✅ Completed This Week ({completedThisWeek.length})</CardTitle></CardHeader>
+        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">Completed This Week ({completedThisWeek.length})</CardTitle></CardHeader>
           <CardContent>{completedThisWeek.length > 0 ? completedThisWeek.map((t) => <p key={t.id} className="text-xs py-1">{t.taskId} — {t.title}</p>) : <p className="text-xs text-muted-foreground">None</p>}</CardContent></Card>
         <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">⏳ Pending/Overdue ({pendingTasks.length})</CardTitle></CardHeader>
           <CardContent>{pendingTasks.length > 0 ? pendingTasks.map((t) => <p key={t.id} className="text-xs py-1">{t.taskId} — {t.title} {overdueTasks.includes(t) && <Badge variant="destructive" className="text-[10px] ml-1">Overdue</Badge>}</p>) : <p className="text-xs text-muted-foreground">None</p>}</CardContent></Card>

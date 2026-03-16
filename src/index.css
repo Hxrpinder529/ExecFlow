@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import './assets/fonts/sf-pro-display.css';
 
 @tailwind base;
 @tailwind components;
@@ -110,15 +110,22 @@
     --chart-4: 0 84% 60%;
     --chart-5: 210 100% 52%;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  /* Global font settings */
+  html {
+    font-family: 'SF Pro Display', system-ui, sans-serif;
   }
+
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    font-family: 'SF Pro Display', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  * {
+    @apply border-border;
   }
 }
 
