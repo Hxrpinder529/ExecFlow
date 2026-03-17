@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardList, RefreshCw, Calendar, FileText, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, ClipboardList, RefreshCw, Calendar, FileText, Settings, LogOut, Heart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useApp } from "@/context/AppContext";
 import {
@@ -24,12 +24,10 @@ const items = [
 ];
 
 export function AppSidebar() {
-
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-
   const { logout, user } = useApp();
-
+  
   const handleLogout = async () => {
     try {
       await logout();
@@ -40,29 +38,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-
       <SidebarContent>
-
         <div className={`p-4 ${collapsed ? "px-2" : ""}`}>
-
-          <div className="flex items-center gap-2">
-
-            <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">
-                EF
-              </span>
-            </div>
-
-            {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-sidebar-foreground">
-                  ExecFlow
-                </span>
-                <span className="text-xs text-sidebar-foreground/60">
-                  Task Tracker
-                </span>
-              </div>
-            )}
+          <div className={`flex items-center justify-center ${collapsed ? "px-0" : ""}`}>
+            <img 
+              src="/logo.png" 
+              alt="ExecFlow" 
+              className="h-20 object-contain"
+            />
           </div>
         </div>
 
@@ -91,6 +74,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && user && (
           <div className="flex items-center gap-2 mb-2 px-1">
@@ -107,6 +91,27 @@ export function AppSidebar() {
             </div>
           </div>
         )}
+
+        {!collapsed && (
+          <div className="mb-3 px-1">
+            <div className="bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-full px-3 py-1.5">
+              <p className="text-[10px] text-sidebar-foreground/60 flex items-center justify-center gap-1">
+                Crafted with 
+                <Heart className="h-2.5 w-2.5 text-red-500 fill-red-500 animate-pulse" /> 
+                by HS
+              </p>
+            </div>
+          </div>
+        )}
+
+        {collapsed && (
+          <div className="flex justify-center mb-2">
+            <div className="bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-full p-1.5">
+              <Heart className="h-3 w-3 text-red-500 fill-red-500 animate-pulse" />
+            </div>
+          </div>
+        )}
+
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

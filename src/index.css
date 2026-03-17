@@ -1,5 +1,3 @@
-@import './assets/fonts/sf-pro-display.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,13 +34,14 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 47% 13%;
-    --sidebar-foreground: 220 20% 85%;
+    /* Light mode sidebar */
+    --sidebar-background: 220 20% 99%;
+    --sidebar-foreground: 220 40% 20%;
     --sidebar-primary: 38 92% 55%;
     --sidebar-primary-foreground: 220 47% 13%;
-    --sidebar-accent: 220 40% 20%;
-    --sidebar-accent-foreground: 40 100% 97%;
-    --sidebar-border: 220 30% 22%;
+    --sidebar-accent: 220 20% 93%;
+    --sidebar-accent-foreground: 220 47% 20%;
+    --sidebar-border: 220 15% 88%;
     --sidebar-ring: 38 92% 55%;
 
     --success: 142 71% 45%;
@@ -88,6 +87,7 @@
     --input: 220 25% 20%;
     --ring: 38 92% 55%;
 
+    /* Dark mode sidebar */
     --sidebar-background: 220 45% 6%;
     --sidebar-foreground: 220 15% 80%;
     --sidebar-primary: 38 92% 55%;
@@ -111,14 +111,14 @@
     --chart-5: 210 100% 52%;
   }
 
-  /* Global font settings */
+  /* Global font settings - now using Inter */
   html {
-    font-family: 'SF Pro Display', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'SF Pro Display', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -169,4 +169,43 @@
 
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
+}
+
+/* Login page animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.ios-input {
+  @apply w-full pl-12 pr-4 py-4 text-base bg-[#F9F9FB] border border-[rgba(60,60,67,0.08)] rounded-2xl focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10 focus:bg-white transition-all;
+}
+
+.ios-btn-primary {
+  @apply w-full bg-[#007AFF] hover:bg-[#0051d5] text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_12px_rgba(0,122,255,0.3)] hover:shadow-[0_6px_16px_rgba(0,122,255,0.4)];
+}
+
+@keyframes gentle-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+.animate-gentle-pulse {
+  animation: gentle-pulse 2s ease-in-out infinite;
 }
