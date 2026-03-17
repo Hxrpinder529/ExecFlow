@@ -552,7 +552,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [tasks, logActivity, user]);
-  
+
   const deleteTask = useCallback(async (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (task) {
@@ -570,22 +570,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [tasks, logActivity, user]);
-
-  const deleteTask = useCallback(async (id: string) => {
-    const task = tasks.find(t => t.id === id);
-    if (task) {
-      await deleteTaskService(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
-      
-      await logActivity(id, "deleted", {
-        metadata: {
-          title: task.title,
-          status: task.status,
-          priority: task.priority
-        }
-      });
-    }
-  }, [tasks, logActivity]);
 
   // FOLLOWUPS
   const addFollowUp = useCallback(async (followUp: FollowUp) => {
