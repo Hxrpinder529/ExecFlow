@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -12,15 +13,30 @@ import Dashboard from "@/pages/Dashboard";
 import TaskRegister from "@/pages/TaskRegister";
 import FollowUpTracker from "@/pages/FollowUpTracker";
 import Projects from "@/pages/Projects";
+import SharedProject from "@/pages/SharedProject";
 import WeeklyReport from "@/pages/WeeklyReport";
 import SettingsPage from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function ThemeApplier() {
+  const { accentColor } = useApp();
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', accentColor);
+    document.documentElement.style.setProperty('--ring', accentColor);
+    document.documentElement.style.setProperty('--sidebar-primary', accentColor);
+    document.documentElement.style.setProperty('--sidebar-ring', accentColor);
+    document.documentElement.style.setProperty('--chart-2', accentColor);
+  }, [accentColor]);
+
+  return null;
+}
+
 function AuthGate() {
   const { user, loading } = useApp();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -28,9 +44,9 @@ function AuthGate() {
       </div>
     );
   }
-  
+
   if (!user) return <Login />;
-  
+
   return (
     <AppLayout>
       <Routes>
@@ -53,7 +69,11 @@ const App = () => (
       <Sonner />
       <AppProvider>
         <BrowserRouter>
-          <AuthGate />
+          <ThemeApplier />
+          <Routes>
+            <Route path="/shared" element={<SharedProject />} />
+            <Route path="/*" element={<AuthGate />} />
+          </Routes>
         </BrowserRouter>
         <OfflineIndicator />
         <PWAPrompt />

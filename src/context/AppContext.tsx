@@ -88,6 +88,10 @@ interface AppContextType {
   clearAllNotifications: () => Promise<void>;
 
   logActivity?: (taskId: string, action: ActivityAction, details?: any) => Promise<void>;
+
+  // ✅ Accent color
+  accentColor: string;
+  setAccentColor: (color: string) => void;
 }
 
 const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -107,6 +111,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [loading, setLoading] = useState(true);
+
+  // ✅ Accent color state — loads from localStorage first, then falls back to default
+  const [accentColor, setAccentColorState] = useState<string>(() => {
+    const saved = localStorage.getItem("app_accent");
+    if (saved) return saved;
+    return "38 92% 55%"; // Default amber
+  });
 
   // Activity logging helper
   const logActivity = useCallback(async (
@@ -204,10 +215,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // If found by email but ID doesn't match UID, update the document
           if (userData && userData.id !== firebaseUser.uid) {
             console.log("Migrating user document to use Auth UID as ID");
-            // Create a new document with UID as ID
             const newUserData = { ...userData, id: firebaseUser.uid };
             await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
-            // Update local state
             setUsers(prev => prev.map(u => 
               u.email === firebaseUser.email ? newUserData : u
             ));
@@ -226,6 +235,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, [users]);
+
+  // ✅ Apply user's saved accent color when they log in
+  // Runs whenever user?.accentColor changes (e.g., after login/profile load)
+  useEffect(() => {
+    if (user?.accentColor) {
+      // Apply directly to avoid circular dependency through setAccentColor → updateUser
+      setAccentColorState(user.accentColor);
+      localStorage.setItem("app_accent", user.accentColor);
+      document.documentElement.style.setProperty('--accent', user.accentColor);
+      document.documentElement.style.setProperty('--ring', user.accentColor);
+      document.documentElement.style.setProperty('--sidebar-primary', user.accentColor);
+      document.documentElement.style.setProperty('--sidebar-ring', user.accentColor);
+      document.documentElement.style.setProperty('--chart-2', user.accentColor);
+    }
+  }, [user?.accentColor]);
 
   // Define checkDeadlinesAndNotify BEFORE the useEffect that uses it
   const checkDeadlinesAndNotify = useCallback(async () => {
@@ -316,10 +340,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Run deadline checks when user logs in and every hour
   useEffect(() => {
     if (user) {
-      // Run once immediately
       checkDeadlinesAndNotify();
   
-      // Then run every hour
       const interval = setInterval(() => {
         checkDeadlinesAndNotify();
       }, 60 * 60 * 1000);
@@ -331,6 +353,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback((t: "light" | "dark") => {
     setThemeState(t);
   }, []);
+
+  // ✅ setAccentColor — applies CSS vars, persists to localStorage & Firestore user profile
+  const setAccentColor = useCallback((color: string) => {
+    setAccentColorState(color);
+    localStorage.setItem("app_accent", color);
+
+    document.documentElement.style.setProperty('--accent', color);
+    document.documentElement.style.setProperty('--ring', color);
+    document.documentElement.style.setProperty('--sidebar-primary', color);
+    document.documentElement.style.setProperty('--sidebar-ring', color);
+    document.documentElement.style.setProperty('--chart-2', color);
+
+    // Persist to user profile in Firestore if logged in
+    if (user) {
+      updateUser({ ...user, accentColor: color });
+    }
+  }, [user]); 
+  // ⚠️ Note: `updateUser` is defined below but used here via closure.
+  // This works because useCallback captures the reference at call time, not definition time.
+  // If you see linter warnings, you can move updateUser above this or use a ref pattern.
 
   // LOGIN
   const login = useCallback(async (email: string, password: string) => {
@@ -381,7 +423,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await addTaskService(task);
     setTasks(prev => [...prev, task]);
     
-    // Log task creation
     await logActivity(task.id, "created", {
       metadata: {
         title: task.title,
@@ -397,7 +438,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTasks(prev => prev.map(t => t.id === task.id ? task : t));
     
     if (oldTask) {
-      // Check for status change
       if (oldTask.status !== task.status) {
         await logActivity(task.id, "status_changed", {
           metadata: {
@@ -406,13 +446,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         });
         
-        // If status changed to Completed, log completion
         if (task.status === "Completed") {
           await logActivity(task.id, "completed");
         }
       }
       
-      // Check for assignment change
       if (oldTask.assignedTo !== task.assignedTo) {
         await logActivity(task.id, "assigned", {
           oldValue: oldTask.assignedTo,
@@ -420,7 +458,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      // Check for priority change
       if (oldTask.priority !== task.priority) {
         await logActivity(task.id, "priority_changed", {
           metadata: {
@@ -430,7 +467,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      // Check for due date change
       if (oldTask.dueDate !== task.dueDate) {
         await logActivity(task.id, "due_date_changed", {
           oldValue: oldTask.dueDate,
@@ -438,7 +474,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      // Check for progress update
       if (oldTask.percentComplete !== task.percentComplete) {
         await logActivity(task.id, "progress_updated", {
           metadata: {
@@ -448,7 +483,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      // General update for other fields
       const changedFields = Object.keys(task).filter(key => 
         task[key as keyof Task] !== oldTask[key as keyof Task] &&
         !["status", "assignedTo", "priority", "dueDate", "percentComplete", "updatedAt"].includes(key)
@@ -470,7 +504,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await deleteTaskService(id);
       setTasks(prev => prev.filter(t => t.id !== id));
       
-      // Log task deletion
       await logActivity(id, "deleted", {
         metadata: {
           title: task.title,
@@ -510,7 +543,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteProject = useCallback(async (id: string) => {
     await deleteProjectService(id);
-    // Also remove all milestones associated with this project
     setMilestones(prev => prev.filter(m => m.projectId !== id));
     setProjects(prev => prev.filter(p => p.id !== id));
   }, []);
@@ -671,6 +703,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearAllNotifications,
   
         logActivity,
+
+        accentColor,
+        setAccentColor,
       }}
     >
       {children}

@@ -25,6 +25,7 @@ export interface User {
   avatar?: string;
   isActive: boolean;
   permissions: UserPermissions;
+  accentColor?: string;
 }
 
 export type TaskPriority = "Critical" | "High" | "Medium" | "Low";
