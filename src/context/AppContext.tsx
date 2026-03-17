@@ -1,7 +1,8 @@
 import {
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import { createActivityLog } from "@/lib/activityService";
 import { setDoc, doc } from "firebase/firestore";
@@ -370,9 +371,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateUser({ ...user, accentColor: color });
     }
   }, [user]); 
-  // ⚠️ Note: `updateUser` is defined below but used here via closure.
-  // This works because useCallback captures the reference at call time, not definition time.
-  // If you see linter warnings, you can move updateUser above this or use a ref pattern.
 
   // LOGIN
   const login = useCallback(async (email: string, password: string) => {
@@ -575,8 +573,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // USERS
   const addUser = useCallback(async (newUser: User, password: string) => {
-    await addUserService(newUser, password);
-    setUsers(prev => [...prev, newUser]);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, password);
+      const firebaseUser = userCredential.user;
+      const userWithAuthId = { ...newUser, id: firebaseUser.uid };
+
+      await addUserService(userWithAuthId, password);
+      setUsers(prev => [...prev, userWithAuthId]);
+      
+      toast.success(`User ${newUser.name} created successfully in Authentication and Firestore`);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error("This email is already registered in Authentication");
+      } else if (error.code === 'auth/weak-password') {
+        toast.error("Password should be at least 6 characters");
+      } else {
+        toast.error("Failed to create user in Authentication");
+      }
+    }
   }, []);
 
   const updateUser = useCallback(async (updatedUser: User) => {
