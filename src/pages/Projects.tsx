@@ -46,6 +46,7 @@ const emptyPlanItem = (order: number): ProjectPlanItem => ({
 export default function Projects() {
   const { 
     projects, 
+    tasks,
     addProject, 
     updateProject, 
     deleteProject 
