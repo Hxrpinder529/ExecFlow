@@ -125,8 +125,7 @@ export default function Projects() {
       toast.error("Project name is required");
       return;
     }
-
-
+  
     try {
       const now = new Date().toISOString();
       if (editingProject.id) {
@@ -141,7 +140,8 @@ export default function Projects() {
           id: crypto.randomUUID(),
           plan: [],
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          createdBy: user?.id
         } as Project;
         await addProject(newProject);
         setSelectedProject(newProject);
@@ -159,7 +159,6 @@ export default function Projects() {
       console.error(error);
     }
   };
-
 
   const handleDeleteProject = async (id: string) => {
     if (confirm("Are you sure you want to delete this project?")) {

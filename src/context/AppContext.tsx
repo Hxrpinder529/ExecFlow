@@ -5,10 +5,10 @@ import {
   createUserWithEmailAndPassword
 } from "firebase/auth";
 import { createActivityLog } from "@/lib/activityService";
-import { setDoc, doc } from "firebase/firestore";
+import { query, where, collection, setDoc, getDocs, doc, Timestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { auth, db } from "@/lib/firebase";
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { Task, FollowUp, ProjectMilestone, WeeklyReport, User, UserRole, defaultPermissions, UserPermissions, Project, Notification } from "@/types";
 import { seedTasks, seedFollowUps, seedProjectMilestones, seedUsers } from "@/data/seed";
 import { createNotification, markAsRead, clearReadNotifications } from "@/lib/notificationService";
@@ -38,6 +38,26 @@ import {
   addWeeklyReport as addWeeklyReportService,
   verifyCredentials
 } from "@/lib/firestoreService";
+
+// Add these missing constants
+const COLLECTIONS = {
+  TASKS: "tasks"
+};
+
+// Add this missing helper function
+const convertTimestamps = (data: any): any => {
+  const converted: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value instanceof Timestamp) {
+      converted[key] = value.toDate().toISOString();
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      converted[key] = convertTimestamps(value);
+    } else {
+      converted[key] = value;
+    }
+  }
+  return converted;
+};
 
 interface AppContextType {
   user: User | null;
@@ -98,6 +118,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType>({} as AppContextType);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  // Use ref to track if initial load has been done
+  const initialLoadDone = useRef(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -146,71 +168,100 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user]);
 
-  // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
+  // Load initial data function
+  const loadData = useCallback(async (currentUser: User) => {
+    try {
+      setLoading(true);
+      
+      // Always fetch users first (needed for admin check)
+      const usersData = await fetchUsers();
+      setUsers(usersData);
+      
+      // Check if current user is admin
+      const currentUserIsAdmin = currentUser?.role === "Admin";
+      
+      // Fetch data based on user role
+      let tasksData: Task[] = [];
+      let followUpsData: FollowUp[] = [];
+      
+      if (currentUserIsAdmin) {
+        // Admin sees everything
+        tasksData = await fetchTasks(currentUser.id, true);
+        followUpsData = await fetchFollowUps(currentUser.id, true);
+      } else {
+        // Regular user sees only their tasks and follow-ups
+        tasksData = await fetchTasks(currentUser.id, false);
         
-        const [
-          usersData,
-          tasksData,
-          followUpsData,
-          projectsData,
-          milestonesData,
-          reportsData
-        ] = await Promise.all([
-          fetchUsers(),
-          fetchTasks(),
-          fetchFollowUps(),
-          fetchProjects(),
-          fetchMilestones(),
-          fetchWeeklyReports()
-        ]);
-
-        setUsers(usersData);
-        setTasks(tasksData);
-        setFollowUps(followUpsData);
-        setProjects(projectsData);
-        setMilestones(milestonesData);
-        setWeeklyReports(reportsData);
-
-        console.log("Data loaded from Firestore:", {
-          users: usersData.length,
-          tasks: tasksData.length,
-          followUps: followUpsData.length,
-          projects: projectsData.length,
-          milestones: milestonesData.length,
-          reports: reportsData.length
-        });
-
-      } catch (error) {
-        console.error("Error loading data from Firestore:", error);
-        setUsers([]);
-        setTasks([]);
-        setFollowUps([]);
-        setProjects([]);
-        setMilestones([]);
-        setWeeklyReports([]);
-      } finally {
-        setLoading(false);
+        // Also get tasks created by this user
+        const createdTasksQuery = query(
+          collection(db, COLLECTIONS.TASKS),
+          where("createdBy", "==", currentUser.id)
+        );
+        const createdTasksSnapshot = await getDocs(createdTasksQuery);
+        const createdTasks = createdTasksSnapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...convertTimestamps(doc.data()) 
+        } as Task));
+        
+        // Combine assigned and created tasks (deduplicate by id)
+        const allTasks = [...tasksData, ...createdTasks];
+        const uniqueTasks = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+        tasksData = uniqueTasks;
+        
+        followUpsData = await fetchFollowUps(currentUser.id, false);
       }
-    };
+      
+      // Projects and reports are team-wide - everyone sees all
+      const [projectsData, milestonesData, reportsData] = await Promise.all([
+        fetchProjects(),
+        fetchMilestones(),
+        fetchWeeklyReports()
+      ]);
 
-    loadData();
+      setTasks(tasksData);
+      setFollowUps(followUpsData);
+      setProjects(projectsData);
+      setMilestones(milestonesData);
+      setWeeklyReports(reportsData);
+
+      console.log("Data loaded from Firestore:", {
+        users: usersData.length,
+        tasks: tasksData.length,
+        followUps: followUpsData.length,
+        projects: projectsData.length,
+        milestones: milestonesData.length,
+        reports: reportsData.length
+      });
+
+    } catch (error) {
+      console.error("Error loading data from Firestore:", error);
+      setUsers([]);
+      setTasks([]);
+      setFollowUps([]);
+      setProjects([]);
+      setMilestones([]);
+      setWeeklyReports([]);
+    } finally {
+      setLoading(false);
+      initialLoadDone.current = true;
+    }
   }, []);
 
-  // Firebase auth listener
+  // Firebase auth listener - this runs first
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
+          // First, fetch all users to find the matching user
+          const usersData = await fetchUsers();
+          setUsers(usersData);
+          
           // Try to find user by UID first (new structure)
-          let userData = users.find(u => u.id === firebaseUser.uid);
+          let userData = usersData.find(u => u.id === firebaseUser.uid);
           
           // If not found, try by email (old structure)
           if (!userData) {
-            userData = users.find(u => u.email === firebaseUser.email);
+            userData = usersData.find(u => u.email === firebaseUser.email);
           }
           
           // If found by email but ID doesn't match UID, update the document
@@ -218,30 +269,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             console.log("Migrating user document to use Auth UID as ID");
             const newUserData = { ...userData, id: firebaseUser.uid };
             await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
+            userData = newUserData;
+            
+            // Update users state with migrated user
             setUsers(prev => prev.map(u => 
               u.email === firebaseUser.email ? newUserData : u
             ));
-            userData = newUserData;
           }
           
-          setUser(userData || null);
+          if (userData && userData.isActive) {
+            setUser(userData);
+            // Load data for this user
+            await loadData(userData);
+          } else {
+            setUser(null);
+            setLoading(false);
+          }
         } else {
           setUser(null);
+          setUsers([]);
+          setTasks([]);
+          setFollowUps([]);
+          setProjects([]);
+          setMilestones([]);
+          setWeeklyReports([]);
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error in auth state change:", error);
         toast.error("Error syncing user data");
+        setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [users]);
+  }, [loadData]);
 
   // ✅ Apply user's saved accent color when they log in
-  // Runs whenever user?.accentColor changes (e.g., after login/profile load)
   useEffect(() => {
     if (user?.accentColor) {
-      // Apply directly to avoid circular dependency through setAccentColor → updateUser
       setAccentColorState(user.accentColor);
       localStorage.setItem("app_accent", user.accentColor);
       document.documentElement.style.setProperty('--accent', user.accentColor);
@@ -252,7 +318,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.accentColor]);
 
-  // Define checkDeadlinesAndNotify BEFORE the useEffect that uses it
+  // Define checkDeadlinesAndNotify
   const checkDeadlinesAndNotify = useCallback(async () => {
     if (!user) return;
   
@@ -340,7 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Run deadline checks when user logs in and every hour
   useEffect(() => {
-    if (user) {
+    if (user && initialLoadDone.current) {
       checkDeadlinesAndNotify();
   
       const interval = setInterval(() => {
@@ -355,7 +421,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setThemeState(t);
   }, []);
 
-  // ✅ setAccentColor — applies CSS vars, persists to localStorage & Firestore user profile
+  // setAccentColor
   const setAccentColor = useCallback((color: string) => {
     setAccentColorState(color);
     localStorage.setItem("app_accent", color);
@@ -366,7 +432,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty('--sidebar-ring', color);
     document.documentElement.style.setProperty('--chart-2', color);
 
-    // Persist to user profile in Firestore if logged in
     if (user) {
       updateUser({ ...user, accentColor: color });
     }
@@ -378,33 +443,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      let userData = users.find(u => u.id === firebaseUser.uid);
-      if (!userData) {
-        userData = users.find(u => u.email === firebaseUser.email);
-      }
-
-      if (userData && userData.isActive) {
-        setUser(userData);
-        return true;
-      }
-      return false;
+      // We'll let the auth listener handle setting the user and loading data
+      return true;
     } catch (error) {
       console.error("Login error:", error);
-      const userId = await verifyCredentials(email, password);
-      if (userId) {
-        const userData = users.find(u => u.id === userId);
-        if (userData && userData.isActive) {
-          setUser(userData);
-          return true;
-        }
-      }
       return false;
     }
-  }, [users]);
+  }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
-    setUser(null);
+    // Auth listener will handle resetting state
   }, []);
 
   // TASK ID
@@ -574,24 +623,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // USERS
   const addUser = useCallback(async (newUser: User, password: string) => {
     try {
+      console.log("Starting user creation process for:", newUser.email);
+      
       const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, password);
       const firebaseUser = userCredential.user;
+      console.log("User created in Firebase Auth with UID:", firebaseUser.uid);
+      
       const userWithAuthId = { ...newUser, id: firebaseUser.uid };
-
+      
       await addUserService(userWithAuthId, password);
+      console.log("User data saved to Firestore");
+      
       setUsers(prev => [...prev, userWithAuthId]);
       
-      toast.success(`User ${newUser.name} created successfully in Authentication and Firestore`);
+      toast.success(`User ${newUser.name} created successfully`);
+            
     } catch (error: any) {
       console.error("Error creating user:", error);
       
       if (error.code === 'auth/email-already-in-use') {
-        toast.error("This email is already registered in Authentication");
+        toast.error("This email is already registered");
       } else if (error.code === 'auth/weak-password') {
         toast.error("Password should be at least 6 characters");
+      } else if (error.code === 'auth/network-request-failed') {
+        toast.error("Network error. Please check your connection.");
+      } else if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        toast.error("Permission denied. Check Firestore rules.");
+        console.error("Firestore rules may be blocking user creation. Current rules:", error);
       } else {
-        toast.error("Failed to create user in Authentication");
+        toast.error(`Failed to create user: ${error.message}`);
       }
+      
+      throw error;
     }
   }, []);
 

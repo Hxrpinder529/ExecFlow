@@ -40,13 +40,20 @@ export default function WeeklyReportPage() {
 
   const generateReport = () => {
     const report: WeeklyReport = {
-      id: crypto.randomUUID(), weekNumber: weekNum, startDate: weekStart, endDate: weekEnd,
+      id: crypto.randomUUID(), 
+      weekNumber: weekNum, 
+      startDate: weekStart, 
+      endDate: weekEnd,
       tasksCompleted: completedThisWeek.map((t) => t.taskId),
       tasksPending: pendingTasks.map((t) => t.taskId),
       tasksOverdue: overdueTasks.map((t) => t.taskId),
       newTasksAdded: newThisWeek.map((t) => t.taskId),
-      achievements, challenges, nextWeekPlan, ceoNotes,
+      achievements, 
+      challenges, 
+      nextWeekPlan, 
+      ceoNotes,
       createdAt: new Date().toISOString(),
+      createdBy: user?.id
     };
     addWeeklyReport(report);
     toast.success("Report generated and saved!");

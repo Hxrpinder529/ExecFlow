@@ -1,4 +1,3 @@
-// src/lib/firestoreService.ts
 import { 
   collection, 
   doc, 
@@ -51,11 +50,21 @@ export const fetchUsers = async (): Promise<User[]> => {
 };
 
 export const addUser = async (user: User, password: string): Promise<void> => {
-  const userRef = doc(db, COLLECTIONS.USERS, user.id);
-  await setDoc(userRef, user);
-  
-  const credRef = doc(db, COLLECTIONS.CREDENTIALS, user.email);
-  await setDoc(credRef, { password, userId: user.id });
+  try {
+    console.log("Adding user to Firestore with ID:", user.id);
+    
+    const userRef = doc(db, COLLECTIONS.USERS, user.id);
+    await setDoc(userRef, user);
+    console.log("User document created in Firestore");
+    
+    const credRef = doc(db, COLLECTIONS.CREDENTIALS, user.email);
+    await setDoc(credRef, { password, userId: user.id });
+    console.log("Credentials stored (temporary)");
+    
+  } catch (error) {
+    console.error("Error in addUserService:", error);
+    throw error;
+  }
 };
 
 export const updateUser = async (user: User): Promise<void> => {
@@ -72,9 +81,22 @@ export const toggleUserActive = async (id: string, isActive: boolean): Promise<v
   await updateDoc(userRef, { isActive: !isActive });
 };
 
-// Tasks
-export const fetchTasks = async (): Promise<Task[]> => {
-  const querySnapshot = await getDocs(collection(db, COLLECTIONS.TASKS));
+// Tasks - with user filtering
+export const fetchTasks = async (userId: string, isAdmin: boolean = false): Promise<Task[]> => {
+  let q;
+  if (isAdmin) {
+    // Admins can see all tasks
+    q = collection(db, COLLECTIONS.TASKS);
+  } else {
+    // Regular users see tasks assigned to them OR created by them
+    q = query(
+      collection(db, COLLECTIONS.TASKS),
+      where("assignedTo", "==", userId)
+    );
+    // Note: This only filters by assignedTo. For createdBy, we'll combine in AppContext
+  }
+  
+  const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ 
     id: doc.id, 
     ...convertTimestamps(doc.data()) 
@@ -95,10 +117,34 @@ export const deleteTask = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLECTIONS.TASKS, id));
 };
 
-// Follow-ups
-export const fetchFollowUps = async (): Promise<FollowUp[]> => {
-  const querySnapshot = await getDocs(collection(db, COLLECTIONS.FOLLOW_UPS));
-  return querySnapshot.docs.map(doc => ({ 
+// Follow-ups - with user filtering via tasks
+export const fetchFollowUps = async (userId: string, isAdmin: boolean = false): Promise<FollowUp[]> => {
+  if (isAdmin) {
+    const querySnapshot = await getDocs(collection(db, COLLECTIONS.FOLLOW_UPS));
+    return querySnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...convertTimestamps(doc.data()) 
+    } as FollowUp));
+  }
+  
+  // First get tasks assigned to user
+  const tasksQuery = query(
+    collection(db, COLLECTIONS.TASKS),
+    where("assignedTo", "==", userId)
+  );
+  const tasksSnapshot = await getDocs(tasksQuery);
+  const taskIds = tasksSnapshot.docs.map(doc => doc.id);
+  
+  if (taskIds.length === 0) return [];
+  
+  // Then get follow-ups for those tasks
+  const followUpsQuery = query(
+    collection(db, COLLECTIONS.FOLLOW_UPS),
+    where("taskId", "in", taskIds)
+  );
+  const followUpsSnapshot = await getDocs(followUpsQuery);
+  
+  return followUpsSnapshot.docs.map(doc => ({ 
     id: doc.id, 
     ...convertTimestamps(doc.data()) 
   } as FollowUp));
@@ -118,7 +164,7 @@ export const deleteFollowUp = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLECTIONS.FOLLOW_UPS, id));
 };
 
-// Projects
+// Projects - all users can see all projects (team-wide), but we add createdBy for editing permissions
 export const fetchProjects = async (): Promise<Project[]> => {
   const querySnapshot = await getDocs(collection(db, COLLECTIONS.PROJECTS));
   return querySnapshot.docs.map(doc => ({ 
@@ -177,7 +223,6 @@ export const deleteMilestone = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLECTIONS.PROJECT_MILESTONES, id));
 };
 
-// Weekly Reports
 export const fetchWeeklyReports = async (): Promise<WeeklyReport[]> => {
   const querySnapshot = await getDocs(collection(db, COLLECTIONS.WEEKLY_REPORTS));
   return querySnapshot.docs.map(doc => ({ 

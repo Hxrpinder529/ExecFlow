@@ -49,7 +49,6 @@ const searchTasks = (task: Task, searchTerm: string): boolean => {
     task.status.toLowerCase().includes(term) ||
     task.priority.toLowerCase().includes(term) ||
     (task.remarks?.toLowerCase() || "").includes(term) ||
-    // Search in dates (as strings)
     task.startDate.includes(term) ||
     task.dueDate.includes(term) ||
     (task.completionDate?.includes(term) || false)
@@ -57,7 +56,7 @@ const searchTasks = (task: Task, searchTerm: string): boolean => {
 };
 
 export default function TaskRegister() {
-  const { tasks, followUps, addTask, updateTask, deleteTask, getNextTaskId, addFollowUp } = useApp();
+  const { user, tasks, followUps, addTask, updateTask, deleteTask, getNextTaskId, addFollowUp } = useApp();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
@@ -164,7 +163,7 @@ export default function TaskRegister() {
     }
   };
 
-  // Updated handleSave with AI integration
+  // handleSave with AI integration
   const handleSave = async () => {
     if (!editingTask?.title || !editingTask?.dueDate) { 
       toast.error("Title and Due Date are required"); 
@@ -174,10 +173,10 @@ export default function TaskRegister() {
       toast.error("Assigned To is required");
       return;
     }
-
+  
     const now = new Date().toISOString();
     let savedTask: Task;
-
+  
     if (editingTask.id) {
       const updatedTask = { ...editingTask, updatedAt: now } as Task;
       await updateTask(updatedTask);
@@ -190,7 +189,8 @@ export default function TaskRegister() {
         id: crypto.randomUUID(), 
         taskId, 
         createdAt: now, 
-        updatedAt: now 
+        updatedAt: now,
+        createdBy: user?.id
       } as Task;
       await addTask(newTask);
       savedTask = newTask;

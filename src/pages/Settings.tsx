@@ -52,19 +52,54 @@ export default function SettingsPage() {
     setPermDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
-    if (!editingUser?.name || !editingUser?.email) { toast.error("Name and email required"); return; }
-    if (editingUser.id) {
-      updateUser({ id: editingUser.id, name: editingUser.name, email: editingUser.email, role: editingUser.role!, isActive: editingUser.isActive!, permissions: editingUser.permissions!, avatar: editingUser.avatar });
-      toast.success("User updated");
-    } else {
-      if (!editingUser.password) { toast.error("Password required for new user"); return; }
-      if (users.find((u) => u.email === editingUser.email)) { toast.error("Email already exists"); return; }
-      const newUser: User = { id: crypto.randomUUID(), name: editingUser.name, email: editingUser.email, role: editingUser.role!, isActive: true, permissions: defaultPermissions[editingUser.role!] };
-      addUser(newUser, editingUser.password);
-      toast.success("User created");
+  const handleSaveUser = async () => {
+    if (!editingUser?.name || !editingUser?.email) { 
+      toast.error("Name and email required"); 
+      return; 
     }
-    setUserDialogOpen(false);
+    
+    if (editingUser.id) {
+      // Update existing user
+      updateUser({ 
+        id: editingUser.id, 
+        name: editingUser.name, 
+        email: editingUser.email, 
+        role: editingUser.role!, 
+        isActive: editingUser.isActive!, 
+        permissions: editingUser.permissions!, 
+        avatar: editingUser.avatar 
+      });
+      toast.success("User updated");
+      setUserDialogOpen(false);
+    } else {
+      if (!editingUser.password) { 
+        toast.error("Password required for new user"); 
+        return; 
+      }
+      if (users.find((u) => u.email === editingUser.email)) { 
+        toast.error("Email already exists"); 
+        return; 
+      }
+      
+      try {
+        const newUser: User = { 
+          id: crypto.randomUUID(),
+          name: editingUser.name, 
+          email: editingUser.email, 
+          role: editingUser.role!, 
+          isActive: true, 
+          permissions: defaultPermissions[editingUser.role!] 
+        };
+        
+        await addUser(newUser, editingUser.password);
+        
+        setUserDialogOpen(false);
+        setEditingUser(null);
+        
+      } catch (error) {
+        console.error("Failed to create user:", error);
+      }
+    }
   };
 
   const handleSavePermissions = () => {
