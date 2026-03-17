@@ -25,7 +25,7 @@ const convertTimestamps = (data: any): any => {
     } else if (value && typeof value === 'object' && !Array.isArray(value)) {
       converted[key] = convertTimestamps(value);
     } else {
-      converted[key] = value;
+      converted[key] = value !== undefined ? value : null;
     }
   }
   return converted;
@@ -62,10 +62,24 @@ export const fetchRecentActivity = async (limitCount = 20): Promise<ActivityLog[
   } as ActivityLog));
 };
 
-// Create activity log entry
+// Create activity log entry - with validation
 export const createActivityLog = async (log: Omit<ActivityLog, "id">): Promise<string> => {
+  // Remove any undefined values
+  const cleanLog: any = {};
+  Object.entries(log).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanLog[key] = value;
+    }
+  });
+  
+  // Ensure required fields are present
+  if (!cleanLog.taskId || !cleanLog.userId || !cleanLog.userName || !cleanLog.action) {
+    console.error("Missing required fields for activity log:", cleanLog);
+    throw new Error("Missing required fields for activity log");
+  }
+  
   const docRef = await addDoc(collection(db, COLLECTION), {
-    ...log,
+    ...cleanLog,
     timestamp: new Date().toISOString()
   });
   return docRef.id;

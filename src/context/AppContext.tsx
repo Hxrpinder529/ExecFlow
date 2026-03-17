@@ -470,26 +470,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await addTaskService(task);
     setTasks(prev => [...prev, task]);
     
-    await logActivity(task.id, "created", {
-      metadata: {
-        title: task.title,
-        status: task.status,
-        priority: task.priority
-      }
-    });
-  }, [logActivity]);
+    if (task.id && user) {
+      await logActivity(task.id, "created", {
+        metadata: {
+          title: task.title || "",
+          status: task.status || "",
+          priority: task.priority || ""
+        }
+      });
+    }
+  }, [logActivity, user]);
 
   const updateTask = useCallback(async (task: Task) => {
     const oldTask = tasks.find(t => t.id === task.id);
     await updateTaskService(task);
     setTasks(prev => prev.map(t => t.id === task.id ? task : t));
     
-    if (oldTask) {
+    if (oldTask && user) {
+      // Check for status change
       if (oldTask.status !== task.status) {
         await logActivity(task.id, "status_changed", {
           metadata: {
-            fromStatus: oldTask.status,
-            toStatus: task.status
+            fromStatus: oldTask.status || "",
+            toStatus: task.status || ""
           }
         });
         
@@ -498,38 +501,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
+      // Check for assignment change
       if (oldTask.assignedTo !== task.assignedTo) {
         await logActivity(task.id, "assigned", {
-          oldValue: oldTask.assignedTo,
-          newValue: task.assignedTo
+          oldValue: oldTask.assignedTo || "",
+          newValue: task.assignedTo || ""
         });
       }
       
+      // Check for priority change
       if (oldTask.priority !== task.priority) {
         await logActivity(task.id, "priority_changed", {
           metadata: {
-            fromPriority: oldTask.priority,
-            toPriority: task.priority
+            fromPriority: oldTask.priority || "",
+            toPriority: task.priority || ""
           }
         });
       }
       
+      // Check for due date change
       if (oldTask.dueDate !== task.dueDate) {
         await logActivity(task.id, "due_date_changed", {
-          oldValue: oldTask.dueDate,
-          newValue: task.dueDate
+          oldValue: oldTask.dueDate || "",
+          newValue: task.dueDate || ""
         });
       }
       
+      // Check for progress update
       if (oldTask.percentComplete !== task.percentComplete) {
         await logActivity(task.id, "progress_updated", {
           metadata: {
-            fromPercent: oldTask.percentComplete,
-            toPercent: task.percentComplete
+            fromPercent: oldTask.percentComplete || 0,
+            toPercent: task.percentComplete || 0
           }
         });
       }
       
+      // General update for other fields
       const changedFields = Object.keys(task).filter(key => 
         task[key as keyof Task] !== oldTask[key as keyof Task] &&
         !["status", "assignedTo", "priority", "dueDate", "percentComplete", "updatedAt"].includes(key)
@@ -538,12 +546,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       for (const field of changedFields) {
         await logActivity(task.id, "updated", {
           field,
-          oldValue: oldTask[field as keyof Task],
-          newValue: task[field as keyof Task]
+          oldValue: oldTask[field as keyof Task] || "",
+          newValue: task[field as keyof Task] || ""
         });
       }
     }
-  }, [tasks, logActivity]);
+  }, [tasks, logActivity, user]);
+  
+  const deleteTask = useCallback(async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      await deleteTaskService(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+      
+      if (user) {
+        await logActivity(id, "deleted", {
+          metadata: {
+            title: task.title || "",
+            status: task.status || "",
+            priority: task.priority || ""
+          }
+        });
+      }
+    }
+  }, [tasks, logActivity, user]);
 
   const deleteTask = useCallback(async (id: string) => {
     const task = tasks.find(t => t.id === id);
