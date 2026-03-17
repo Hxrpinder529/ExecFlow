@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Plus, Edit, Trash2, Calendar, Clock, CheckCircle2, PlayCircle, PauseCircle, XCircle } from "lucide-react";
 import { Project, ProjectPlanItem } from "@/types";
 import { format } from "date-fns";
+import { exportProjectToExcel } from "@/lib/helpers";
+import { FileSpreadsheet } from "lucide-react";
 
 const emptyProject = (): Partial<Project> => ({
   name: "",
@@ -151,6 +153,16 @@ export default function Projects() {
         toast.error("Failed to delete project");
         console.error(error);
       }
+    }
+  };
+
+  const handleExportProject = (project: Project) => {
+    try {
+      exportProjectToExcel(project, tasks);
+      toast.success("Project exported to Excel successfully!");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export project");
     }
   };
 
@@ -381,9 +393,14 @@ export default function Projects() {
                     </Badge>
                   </div>
                   <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleExportProject(selectedProject)}>
+                      <FileSpreadsheet className="h-3 w-3 mr-1" />Export
+                    </Button>
+
                     <Button variant="outline" size="sm" onClick={() => handleEditProject(selectedProject)}>
                       <Edit className="h-3 w-3 mr-1" />Edit
                     </Button>
+
                     <Button variant="destructive" size="sm" onClick={() => handleDeleteProject(selectedProject.id)}>
                       <Trash2 className="h-3 w-3 mr-1" />Delete
                     </Button>

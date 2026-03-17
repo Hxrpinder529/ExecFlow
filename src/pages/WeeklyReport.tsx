@@ -6,10 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { FileText, Plus, Printer } from "lucide-react";
+import { FileText, Plus, Printer, Download, FileSpreadsheet } from "lucide-react";
+import { exportWeeklyReportToExcel } from "@/lib/helpers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function WeeklyReportPage() {
-  const { tasks, weeklyReports, addWeeklyReport } = useApp();
+  const { tasks, weeklyReports, addWeeklyReport, followUps, projects } = useApp();
   const [achievements, setAchievements] = useState("");
   const [challenges, setChallenges] = useState("");
   const [nextWeekPlan, setNextWeekPlan] = useState("");
@@ -46,44 +53,141 @@ export default function WeeklyReportPage() {
     setAchievements(""); setChallenges(""); setNextWeekPlan(""); setCeoNotes("");
   };
 
+  const handleExportExcel = (report: WeeklyReport) => {
+    try {
+      exportWeeklyReportToExcel(report, tasks, followUps, projects);
+      toast.success("Report exported to Excel successfully!");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export report");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-2xl font-bold">Weekly Report</h1><p className="text-sm text-muted-foreground">Week {weekNum} — {weekStart} to {weekEnd}</p></div>
-        <Button onClick={() => window.print()} variant="outline" size="sm"><Printer className="h-4 w-4 mr-1" />Print</Button>
+        <div>
+          <h1 className="text-2xl font-bold">Weekly Report</h1>
+          <p className="text-sm text-muted-foreground">Week {weekNum} — {weekStart} to {weekEnd}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => window.print()} variant="outline" size="sm">
+            <Printer className="h-4 w-4 mr-1" />Print
+          </Button>
+        </div>
       </div>
 
       {/* Auto-populated */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">Completed This Week ({completedThisWeek.length})</CardTitle></CardHeader>
-          <CardContent>{completedThisWeek.length > 0 ? completedThisWeek.map((t) => <p key={t.id} className="text-xs py-1">{t.taskId} — {t.title}</p>) : <p className="text-xs text-muted-foreground">None</p>}</CardContent></Card>
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">⏳ Pending/Overdue ({pendingTasks.length})</CardTitle></CardHeader>
-          <CardContent>{pendingTasks.length > 0 ? pendingTasks.map((t) => <p key={t.id} className="text-xs py-1">{t.taskId} — {t.title} {overdueTasks.includes(t) && <Badge variant="destructive" className="text-[10px] ml-1">Overdue</Badge>}</p>) : <p className="text-xs text-muted-foreground">None</p>}</CardContent></Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Completed This Week ({completedThisWeek.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {completedThisWeek.length > 0 ? completedThisWeek.map((t) => 
+              <p key={t.id} className="text-xs py-1">{t.taskId} — {t.title}</p>
+            ) : <p className="text-xs text-muted-foreground">None</p>}
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">⏳ Pending/Overdue ({pendingTasks.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pendingTasks.length > 0 ? pendingTasks.map((t) => 
+              <p key={t.id} className="text-xs py-1">
+                {t.taskId} — {t.title} 
+                {overdueTasks.includes(t) && 
+                  <Badge variant="destructive" className="text-[10px] ml-1">Overdue</Badge>
+                }
+              </p>
+            ) : <p className="text-xs text-muted-foreground">None</p>}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Manual sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">Key Achievements</CardTitle></CardHeader>
-          <CardContent><Textarea value={achievements} onChange={(e) => setAchievements(e.target.value)} placeholder="What went well..." rows={3} /></CardContent></Card>
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">Challenges Faced</CardTitle></CardHeader>
-          <CardContent><Textarea value={challenges} onChange={(e) => setChallenges(e.target.value)} placeholder="Any blockers or issues..." rows={3} /></CardContent></Card>
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">Next Week's Plan</CardTitle></CardHeader>
-          <CardContent><Textarea value={nextWeekPlan} onChange={(e) => setNextWeekPlan(e.target.value)} placeholder="Key focus areas..." rows={3} /></CardContent></Card>
-        <Card className="glass-card"><CardHeader className="pb-2"><CardTitle className="text-sm">CEO Notes</CardTitle></CardHeader>
-          <CardContent><Textarea value={ceoNotes} onChange={(e) => setCeoNotes(e.target.value)} placeholder="Highlights for CEO..." rows={3} /></CardContent></Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Key Achievements</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea 
+              value={achievements} 
+              onChange={(e) => setAchievements(e.target.value)} 
+              placeholder="What went well..." 
+              rows={3} 
+            />
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Challenges Faced</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea 
+              value={challenges} 
+              onChange={(e) => setChallenges(e.target.value)} 
+              placeholder="Any blockers or issues..." 
+              rows={3} 
+            />
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Next Week's Plan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea 
+              value={nextWeekPlan} 
+              onChange={(e) => setNextWeekPlan(e.target.value)} 
+              placeholder="Key focus areas..." 
+              rows={3} 
+            />
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">CEO Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea 
+              value={ceoNotes} 
+              onChange={(e) => setCeoNotes(e.target.value)} 
+              placeholder="Highlights for CEO..." 
+              rows={3} 
+            />
+          </CardContent>
+        </Card>
       </div>
 
-      <Button onClick={generateReport} className="w-full"><FileText className="h-4 w-4 mr-2" />Generate & Save Report</Button>
+      <Button onClick={generateReport} className="w-full">
+        <FileText className="h-4 w-4 mr-2" />Generate & Save Report
+      </Button>
 
       {/* Past reports */}
       {weeklyReports.length > 0 && (
         <Card className="glass-card">
-          <CardHeader><CardTitle className="text-sm">Past Reports</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm">Past Reports</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
             {weeklyReports.slice().reverse().map((r) => (
               <div key={r.id} className="flex items-center justify-between p-2 rounded bg-muted/50 text-xs">
-                <span>Week {r.weekNumber} ({r.startDate} to {r.endDate})</span>
-                <Badge variant="outline">{r.tasksCompleted.length} completed</Badge>
+                <div className="flex items-center gap-2">
+                  <span>Week {r.weekNumber} ({r.startDate} to {r.endDate})</span>
+                  <Badge variant="outline">{r.tasksCompleted.length} completed</Badge>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 px-2"
+                  onClick={() => handleExportExcel(r)}
+                >
+                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                  Excel
+                </Button>
               </div>
             ))}
           </CardContent>

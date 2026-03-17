@@ -1,0 +1,107 @@
+{
+    "name": "ExecFlow - Task Tracker",
+    "short_name": "ExecFlow",
+    "description": "Task Delegation & Follow-up Tracker for teams and organizations",
+    "theme_color": "#0f172a",
+    "background_color": "#0f172a",
+    "display": "standalone",
+    "orientation": "portrait",
+    "scope": "/",
+    "start_url": "/",
+    "id": "/",
+    "icons": [
+      {
+        "src": "/icons/icon-72x72.png",
+        "sizes": "72x72",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-96x96.png",
+        "sizes": "96x96",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-128x128.png",
+        "sizes": "128x128",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-144x144.png",
+        "sizes": "144x144",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-152x152.png",
+        "sizes": "152x152",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-384x384.png",
+        "sizes": "384x384",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icons/icon-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ],
+    "screenshots": [
+      {
+        "src": "/screenshots/desktop.png",
+        "sizes": "1920x1080",
+        "type": "image/png",
+        "form_factor": "wide",
+        "label": "ExecFlow Dashboard"
+      },
+      {
+        "src": "/screenshots/mobile.png",
+        "sizes": "750x1334",
+        "type": "image/png",
+        "form_factor": "narrow",
+        "label": "ExecFlow Mobile View"
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "New Task",
+        "short_name": "New Task",
+        "description": "Create a new task",
+        "url": "/tasks?action=new",
+        "icons": [
+          {
+            "src": "/icons/task-icon.png",
+            "sizes": "192x192"
+          }
+        ]
+      },
+      {
+        "name": "Follow-ups",
+        "short_name": "Follow-ups",
+        "description": "View pending follow-ups",
+        "url": "/follow-ups",
+        "icons": [
+          {
+            "src": "/icons/followup-icon.png",
+            "sizes": "192x192"
+          }
+        ]
+      }
+    ],
+    "categories": ["productivity", "business", "tasks"],
+    "lang": "en",
+    "dir": "auto"
+  }

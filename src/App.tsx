@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { AppLayout } from "@/components/AppLayout";
+import { PWAPrompt } from "@/components/PWAPrompt";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import TaskRegister from "@/pages/TaskRegister";
@@ -53,6 +55,8 @@ const App = () => (
         <BrowserRouter>
           <AuthGate />
         </BrowserRouter>
+        <OfflineIndicator />
+        <PWAPrompt />
       </AppProvider>
     </TooltipProvider>
   </QueryClientProvider>

@@ -3,13 +3,14 @@ import {
   signOut,
   onAuthStateChanged
 } from "firebase/auth";
+import { createActivityLog } from "@/lib/activityService";
 import { setDoc, doc } from "firebase/firestore";
 import { toast } from "sonner";
-import { auth, db } from "@/lib/firebase"; // Combined import
+import { auth, db } from "@/lib/firebase";
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { Task, FollowUp, ProjectMilestone, WeeklyReport, User, UserRole, defaultPermissions, UserPermissions, Project } from "@/types";
+import { Task, FollowUp, ProjectMilestone, WeeklyReport, User, UserRole, defaultPermissions, UserPermissions, Project, Notification } from "@/types";
 import { seedTasks, seedFollowUps, seedProjectMilestones, seedUsers } from "@/data/seed";
-
+import { createNotification, markAsRead, clearReadNotifications } from "@/lib/notificationService";
 import {
   fetchUsers,
   addUser as addUserService,
@@ -36,46 +37,6 @@ import {
   addWeeklyReport as addWeeklyReportService,
   verifyCredentials
 } from "@/lib/firestoreService";
-
-import {
-  fetchUsers,
-  addUser as addUserService,
-  updateUser as updateUserService,
-  deleteUser as deleteUserService,
-  toggleUserActive as toggleUserActiveService,
-
-  fetchTasks,
-  addTask as addTaskService,
-  updateTask as updateTaskService,
-  deleteTask as deleteTaskService,
-
-  fetchFollowUps,
-  addFollowUp as addFollowUpService,
-  updateFollowUp as updateFollowUpService,
-  deleteFollowUp as deleteFollowUpService,
-
-  fetchProjects,
-  addProject as addProjectService,
-  updateProject as updateProjectService,
-  deleteProject as deleteProjectService,
-
-  fetchMilestones,
-  addMilestone as addMilestoneService,
-  updateMilestone as updateMilestoneService,
-  deleteMilestone as deleteMilestoneService,
-
-  fetchWeeklyReports,
-  addWeeklyReport as addWeeklyReportService,
-
-  verifyCredentials
-} from "@/lib/firestoreService";
-
-import { auth } from "@/lib/firebase";
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
 
 interface AppContextType {
   user: User | null;
@@ -122,6 +83,11 @@ interface AppContextType {
 
   updateUserPermissions: (id: string, perms: UserPermissions) => Promise<void>;
   updateUserRole: (id: string, role: UserRole) => Promise<void>;
+
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
+
+  logActivity?: (taskId: string, action: ActivityAction, details?: any) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -141,6 +107,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [loading, setLoading] = useState(true);
+
+  // Activity logging helper
+  const logActivity = useCallback(async (
+    taskId: string,
+    action: ActivityAction,
+    details: {
+      field?: string;
+      oldValue?: any;
+      newValue?: any;
+      metadata?: any;
+    } = {}
+  ) => {
+    if (!user) return;
+    
+    await createActivityLog({
+      taskId,
+      userId: user.id,
+      userName: user.name,
+      action,
+      field: details.field,
+      oldValue: details.oldValue,
+      newValue: details.newValue,
+      metadata: details.metadata,
+      timestamp: new Date().toISOString()
+    });
+  }, [user]);
 
   // Load initial data
   useEffect(() => {
@@ -235,11 +227,106 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [users]);
 
-  // Theme
+  // Define checkDeadlinesAndNotify BEFORE the useEffect that uses it
+  const checkDeadlinesAndNotify = useCallback(async () => {
+    if (!user) return;
+  
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  
+    // Check tasks
+    tasks.forEach(async (task) => {
+      if (task.status === "Completed") return;
+  
+      const dueDate = new Date(task.dueDate);
+  
+      if (dueDate.toDateString() === tomorrow.toDateString()) {
+        await createNotification({
+          userId: user.id,
+          type: "task_due",
+          title: "Task Due Tomorrow",
+          message: `${task.taskId}: ${task.title}`,
+          link: `/tasks?task=${task.id}`,
+          read: false,
+          priority: "medium",
+          createdAt: new Date().toISOString(),
+          data: { taskId: task.id }
+        });
+      }
+  
+      if (dueDate < now) {
+        await createNotification({
+          userId: user.id,
+          type: "task_overdue",
+          title: "Task Overdue",
+          message: `${task.taskId}: ${task.title}`,
+          link: `/tasks?task=${task.id}`,
+          read: false,
+          priority: "high",
+          createdAt: new Date().toISOString(),
+          data: { taskId: task.id }
+        });
+      }
+    });
+  
+    // Check follow-ups
+    followUps.forEach(async (followUp) => {
+      if (followUp.status !== "Pending") return;
+  
+      const followUpDate = new Date(followUp.followUpDate);
+  
+      if (followUpDate.toDateString() === tomorrow.toDateString()) {
+        await createNotification({
+          userId: user.id,
+          type: "followup_due",
+          title: "Follow-up Due Tomorrow",
+          message: `${followUp.actionItem} for ${followUp.stakeholder}`,
+          link: `/follow-ups?followup=${followUp.id}`,
+          read: false,
+          priority: "medium",
+          createdAt: new Date().toISOString(),
+          data: { followUpId: followUp.id, taskId: followUp.taskId }
+        });
+      }
+  
+      if (followUpDate < now) {
+        await createNotification({
+          userId: user.id,
+          type: "followup_due",
+          title: "Follow-up Overdue",
+          message: `${followUp.actionItem} for ${followUp.stakeholder}`,
+          link: `/follow-ups?followup=${followUp.id}`,
+          read: false,
+          priority: "high",
+          createdAt: new Date().toISOString(),
+          data: { followUpId: followUp.id, taskId: followUp.taskId }
+        });
+      }
+    });
+  
+  }, [user, tasks, followUps]);
+
+  // Theme effect
   useEffect(() => {
     localStorage.setItem("app_theme", theme);
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  // Run deadline checks when user logs in and every hour
+  useEffect(() => {
+    if (user) {
+      // Run once immediately
+      checkDeadlinesAndNotify();
+  
+      // Then run every hour
+      const interval = setInterval(() => {
+        checkDeadlinesAndNotify();
+      }, 60 * 60 * 1000);
+  
+      return () => clearInterval(interval);
+    }
+  }, [user, checkDeadlinesAndNotify]);
 
   const setTheme = useCallback((t: "light" | "dark") => {
     setThemeState(t);
@@ -293,17 +380,106 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTask = useCallback(async (task: Task) => {
     await addTaskService(task);
     setTasks(prev => [...prev, task]);
-  }, []);
+    
+    // Log task creation
+    await logActivity(task.id, "created", {
+      metadata: {
+        title: task.title,
+        status: task.status,
+        priority: task.priority
+      }
+    });
+  }, [logActivity]);
 
   const updateTask = useCallback(async (task: Task) => {
+    const oldTask = tasks.find(t => t.id === task.id);
     await updateTaskService(task);
     setTasks(prev => prev.map(t => t.id === task.id ? task : t));
-  }, []);
+    
+    if (oldTask) {
+      // Check for status change
+      if (oldTask.status !== task.status) {
+        await logActivity(task.id, "status_changed", {
+          metadata: {
+            fromStatus: oldTask.status,
+            toStatus: task.status
+          }
+        });
+        
+        // If status changed to Completed, log completion
+        if (task.status === "Completed") {
+          await logActivity(task.id, "completed");
+        }
+      }
+      
+      // Check for assignment change
+      if (oldTask.assignedTo !== task.assignedTo) {
+        await logActivity(task.id, "assigned", {
+          oldValue: oldTask.assignedTo,
+          newValue: task.assignedTo
+        });
+      }
+      
+      // Check for priority change
+      if (oldTask.priority !== task.priority) {
+        await logActivity(task.id, "priority_changed", {
+          metadata: {
+            fromPriority: oldTask.priority,
+            toPriority: task.priority
+          }
+        });
+      }
+      
+      // Check for due date change
+      if (oldTask.dueDate !== task.dueDate) {
+        await logActivity(task.id, "due_date_changed", {
+          oldValue: oldTask.dueDate,
+          newValue: task.dueDate
+        });
+      }
+      
+      // Check for progress update
+      if (oldTask.percentComplete !== task.percentComplete) {
+        await logActivity(task.id, "progress_updated", {
+          metadata: {
+            fromPercent: oldTask.percentComplete,
+            toPercent: task.percentComplete
+          }
+        });
+      }
+      
+      // General update for other fields
+      const changedFields = Object.keys(task).filter(key => 
+        task[key as keyof Task] !== oldTask[key as keyof Task] &&
+        !["status", "assignedTo", "priority", "dueDate", "percentComplete", "updatedAt"].includes(key)
+      );
+      
+      for (const field of changedFields) {
+        await logActivity(task.id, "updated", {
+          field,
+          oldValue: oldTask[field as keyof Task],
+          newValue: task[field as keyof Task]
+        });
+      }
+    }
+  }, [tasks, logActivity]);
 
   const deleteTask = useCallback(async (id: string) => {
-    await deleteTaskService(id);
-    setTasks(prev => prev.filter(t => t.id !== id));
-  }, []);
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      await deleteTaskService(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+      
+      // Log task deletion
+      await logActivity(id, "deleted", {
+        metadata: {
+          title: task.title,
+          status: task.status,
+          priority: task.priority
+        }
+      });
+    }
+  }, [tasks, logActivity]);
 
   // FOLLOWUPS
   const addFollowUp = useCallback(async (followUp: FollowUp) => {
@@ -436,6 +612,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [users]);
 
+  const markNotificationAsRead = useCallback(async (notificationId: string) => {
+    await markAsRead(notificationId);
+  }, []);
+  
+  const clearAllNotifications = useCallback(async () => {
+    if (user) {
+      await clearReadNotifications(user.id);
+    }
+  }, [user]);
+
   return (
     <AppContext.Provider
       value={{
@@ -448,38 +634,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         weeklyReports,
         theme,
         loading,
-
+  
         login,
         logout,
         setTheme,
-
+  
         addTask,
         updateTask,
         deleteTask,
-
+  
         addFollowUp,
         updateFollowUp,
         deleteFollowUp,
-
+  
         addProject,
         updateProject,
         deleteProject,
-
+  
         addMilestone,
         updateMilestone,
         deleteMilestone,
         getMilestonesByProject,
-
+  
         addWeeklyReport,
-
+  
         getNextTaskId,
-
+  
         addUser,
         updateUser,
         deleteUser,
         toggleUserActive,
         updateUserPermissions,
-        updateUserRole
+        updateUserRole,
+  
+        markNotificationAsRead,
+        clearAllNotifications,
+  
+        logActivity,
       }}
     >
       {children}

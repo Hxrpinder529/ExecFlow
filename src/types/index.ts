@@ -110,3 +110,65 @@ export interface WeeklyReport {
   ceoNotes: string;
   createdAt: string;
 }
+
+// Notifications
+export type NotificationType = 
+  | "task_due" 
+  | "task_overdue" 
+  | "followup_due" 
+  | "task_assigned" 
+  | "mention" 
+  | "system";
+
+export type NotificationPriority = "low" | "medium" | "high";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  priority: NotificationPriority;
+  createdAt: string;
+  expiresAt?: string;
+  data?: {
+    taskId?: string;
+    followUpId?: string;
+    projectId?: string;
+    [key: string]: any;
+  };
+}
+
+export type ActivityAction = 
+  | "created"
+  | "updated"
+  | "status_changed"
+  | "assigned"
+  | "priority_changed" 
+  | "due_date_changed"
+  | "progress_updated"
+  | "comment_added"
+  | "completed";
+
+export interface ActivityLog {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  action: ActivityAction;
+  field?: string;
+  oldValue?: any;
+  newValue?: any;
+  timestamp: string;
+  metadata?: {
+    fromStatus?: string;
+    toStatus?: string;
+    fromPriority?: string;
+    toPriority?: string;
+    fromPercent?: number;
+    toPercent?: number;
+    [key: string]: any;
+  };
+}
