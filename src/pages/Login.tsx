@@ -44,7 +44,7 @@ export default function Login() {
                 <img 
                   src="/logo.png" 
                   alt="ExecFlow" 
-                  className="h-10 mb-2 object-contain"
+                  className="h-20 mb-2 object-contain"
                 />
               </div>
 
@@ -126,16 +126,8 @@ export default function Login() {
               <img 
                 src="/login-illustration.png" 
                 alt="Login Illustration" 
-                className="max-h-[500px] w-auto max-w-full object-contain"
+                className="max-h-[450px] w-auto max-w-full object-contain"
               />
-              {/* Fallback if image doesn't exist - you can create a simple SVG or use a placeholder */}
-              {/* <div className="text-center text-gray-400">
-                <svg className="w-64 h-64 mx-auto" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="100" cy="100" r="80" stroke="#007AFF" strokeWidth="4" strokeDasharray="8 8" fill="none"/>
-                  <path d="M100 40 L100 100 L140 120" stroke="#007AFF" strokeWidth="4" strokeLinecap="round"/>
-                </svg>
-                <p className="mt-4 text-sm">Task Management Illustration</p>
-              </div> */}
             </div>
           </div>
         </div>
